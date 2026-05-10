@@ -5,3 +5,4 @@ __pycache__/
 test_rag.db
 artifacts/job_*
 .env*
+!.env*.example
