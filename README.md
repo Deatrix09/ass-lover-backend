@@ -1,171 +1,111 @@
 # A.S.S. Lover — Backend (RAG Ingestion API)
 
-> FastAPI backend pro inteligentní sběr webového obsahu a RAG vyhledávání
+> FastAPI backend for intelligent web content ingestion and RAG search.
 
-## Přehled
+## Overview
 
-Backend slouží jako orchestrátor a ingest engine systému A.S.S. Lover. Zajišťuje:
-- Multimodální sběr webového obsahu (HTML scraping, deep crawl)
-- Indexování dokumentů do vektorové databáze Qdrant
-- RAG vyhledávání s generováním odpovědí přes LLM
-- Autentizaci a autorizaci přes Keycloak (OIDC/OAuth2)
+The backend serves as the orchestrator and ingest engine for the A.S.S. Lover system. It provides:
+- Multimodal web content collection (HTML scraping, deep crawl)
+- Document indexing into Qdrant vector database
+- RAG search with response generation via LLM
+- Authentication and authorization via Keycloak (OIDC/OAuth2)
 
-## Architektura
+## Architecture
 
 ```
 Frontend → nginx → FastAPI (backend)
                        ├── ingestion.py   # Scraping pipeline (httpx + BeautifulSoup)
                        ├── rag.py         # RAG pipeline (LangChain + Qdrant + LLM)
-                       ├── auth.py        # Keycloak JWT ověření
-                       ├── models.py      # SQLAlchemy modely (PostgreSQL)
-                       └── scheduler.py   # Plánované úlohy
+                       ├── auth.py        # Keycloak JWT verification
+                       ├── models.py      # SQLAlchemy models (PostgreSQL)
+                       └── scheduler.py   # Scheduled tasks
 ```
 
-## Technologie
+## Tech Stack
 
-| Komponenta | Technologie |
+| Component | Technology |
 |---|---|
 | Framework | FastAPI + Gunicorn/Uvicorn |
-| Databáze | PostgreSQL (SQLAlchemy) |
-| Vektorová DB | Qdrant |
-| Embeddingy | HuggingFace `paraphrase-multilingual-MiniLM-L12-v2` (CPU) |
+| Database | PostgreSQL (SQLAlchemy) |
+| Vector DB | Qdrant |
+| Embeddings | HuggingFace `paraphrase-multilingual-MiniLM-L12-v2` (CPU) |
 | LLM | e-infra API (`llama-4-scout-17b-16e-instruct`) |
-| RAG pipeline | LangChain |
+| RAG Pipeline | LangChain |
 | Scraping | httpx + BeautifulSoup4 + markdownify |
 | Auth | Keycloak (OIDC/OAuth2, JWT RS256) |
-| Fronta | Redis (background tasks) |
+| Task Queue | Redis (background tasks) |
 
-## API Endpointy
+## API Endpoints
 
-### Autentizace
-| Metoda | Endpoint | Popis | Role |
+### Authentication
+| Method | Endpoint | Description | Role |
 |---|---|---|---|
-| GET | `/api/auth/me` | Profil přihlášeného uživatele | user+ |
+| GET | `/api/auth/me` | Current user profile | user+ |
 
 ### Ingestion
-| Metoda | Endpoint | Popis | Role |
+| Method | Endpoint | Description | Role |
 |---|---|---|---|
-| POST | `/api/ingest` | Spustit sběr dat z URL | admin |
-| GET | `/api/jobs` | Seznam ingestion jobů | admin |
-| DELETE | `/api/jobs/{id}` | Smazat job a jeho vektory | admin |
-| GET | `/api/jobs/{id}/detail` | Detail jobu + evidence artefakty | user+ |
-| GET | `/api/jobs/{id}/files` | Seznam extrahovaných souborů | user+ |
-| PUT | `/api/jobs/{id}/resolve` | Vyřešit incident (CAPTCHA/FAILED) | admin |
+| POST | `/api/ingest` | Trigger URL ingestion | admin |
+| GET | `/api/jobs` | List ingestion jobs | admin |
+| DELETE | `/api/jobs/{id}` | Delete job and its vectors | admin |
+| GET | `/api/jobs/{id}/detail` | Job detail + evidence artifacts | user+ |
+| GET | `/api/jobs/{id}/files` | List of extracted files | user+ |
+| PUT | `/api/jobs/{id}/resolve` | Resolve incident (CAPTCHA/FAILED) | admin |
 
-### Zdroje
-| Metoda | Endpoint | Popis | Role |
+### Sources
+| Method | Endpoint | Description | Role |
 |---|---|---|---|
-| GET | `/api/sources` | Seznam registrovaných zdrojů | user+ |
-| DELETE | `/api/sources/{id}` | Smazat zdroj | admin |
+| GET | `/api/sources` | List registered sources | user+ |
+| DELETE | `/api/sources/{id}` | Delete source | admin |
 
-### Vyhledávání
-| Metoda | Endpoint | Popis | Role |
+### Search
+| Method | Endpoint | Description | Role |
 |---|---|---|---|
-| POST | `/api/search` | RAG vyhledávání + generování odpovědi | volitelné |
+| POST | `/api/search` | RAG search + response generation | optional |
 
-### Analytics & Soubory
-| Metoda | Endpoint | Popis | Role |
-|---|---|---|---|
-| GET | `/api/analytics` | Přehled statistik systému | user+ |
-| GET | `/api/files/{filename}` | Obsah extrahovaného dokumentu | volitelné |
-| GET | `/api/evidence/{id}/file` | Screenshot evidence artefakt | user+ |
+## Installation & Setup
 
-## Ingest Pipeline
-
-Systém používá vícevrstvou strategii pro sběr obsahu:
-
-```
-URL → robots.txt check (bypass pro consent/contract)
-    → HTTP scraping (httpx + BeautifulSoup)
-    → Markdown konverze
-    → Chunking (LangChain MarkdownTextSplitter)
-    → Embeddingy (HuggingFace MiniLM)
-    → Qdrant indexování
-```
-
-### Strategie ingestu
-- **HTML** — standardní HTTP GET + parsování DOM
-- **Rendered DOM** — fallback pro JS-heavy stránky (Playwright)
-- **Screenshot + OCR** — fallback pro vizuálně komplexní stránky
-
-### Deep Crawl
-- BFS procházení interních odkazů
-- Maximálně 30 stránek na job
-- Normalizace URL (odstranění duplicit s query params)
-
-### CAPTCHA & Incidenty
-- Detekce CAPTCHA v obsahu stránky
-- Ukládání evidence artefaktů (screenshoty, logy)
-- Workflow: `CAPTCHA_DETECTED → resolve → retry`
-
-### robots.txt
-- Respektování robots.txt pro `public` zdroje
-- Bypass pro `consent` a `contract` zdroje (smluvní souhlas s majitelem)
-
-## Instalace a spuštění
-
-### Požadavky
+### Requirements
 - Python 3.11+
 - PostgreSQL
 - Qdrant
 - Redis
 - Keycloak
 
-### Lokální vývoj
+### Local Development
 
-```bash
-pip install -r requirements.txt
+1. Install dependencies:
+   ```bash
+   pip install -r requirements.txt
+   ```
 
-# Nastavení prostředí
-export DATABASE_URL="postgresql://user:pass@localhost:5432/ragdb"
-export QDRANT_HOST="localhost"
-export QDRANT_PORT="6333"
-export OLLAMA_URL="https://llm.ai.e-infra.cz/v1"
-export OLLAMA_API_KEY="váš-api-klíč"
-export LLM_MODEL_NAME="llama-4-scout-17b-16e-instruct"
-export KEYCLOAK_URL="http://localhost:8080"
-export KEYCLOAK_PUBLIC_URL="http://localhost:8080"
+2. Configure environment:
+   Copy `.env.example` to `.env` and update the values.
+   ```bash
+   cp .env.example .env
+   ```
 
-# Spuštění
-uvicorn main:app --reload
-```
+3. Run the application:
+   ```bash
+   uvicorn main:app --reload
+   ```
 
-### Docker
+### Docker Deployment
 
-Viz repozitář [rag-infra](https://github.com/abakan21/rag-infra).
+Refer to the [ass-lover-infra](https://github.com/Deatrix09/ass-lover-infra) repository for production deployment instructions.
 
-## Proměnné prostředí
+## Environment Variables
 
-| Proměnná | Popis | Výchozí |
+Refer to `.env.example` for the full list of supported variables.
+
+| Variable | Description | Default |
 |---|---|---|
 | `DATABASE_URL` | PostgreSQL connection string | `sqlite:///./rag_storage.db` |
 | `QDRANT_HOST` | Qdrant hostname | `localhost` |
-| `QDRANT_PORT` | Qdrant port | `6333` |
-| `OLLAMA_URL` | LLM API base URL | `https://llm.ai.e-infra.cz/v1` |
-| `OLLAMA_API_KEY` | LLM API klíč | — |
-| `LLM_MODEL_NAME` | Název LLM modelu | `llama-4-scout-17b-16e-instruct` |
-| `KEYCLOAK_URL` | Interní URL Keycloaku | `http://keycloak:8080` |
-| `KEYCLOAK_PUBLIC_URL` | Veřejná URL Keycloaku | `http://localhost:8080` |
-| `KEYCLOAK_REALM` | Název Keycloak realmu | `rag` |
-| `CORS_ORIGINS` | Povolené CORS origins | `http://localhost` |
-| `DATA_DIR` | Adresář pro ukládání souborů | `data` |
+| `OLLAMA_URL` | LLM API base URL | — |
+| `OLLAMA_API_KEY` | LLM API Key | — |
+| `CORS_ORIGINS` | Allowed CORS origins | `http://localhost` |
 
-## Datový model
+## License
 
-```
-Source (1) ──→ (N) IngestJob (1) ──→ (N) Evidence
-                                         (screenshot, markdown)
-```
-
-| Entita | Popis |
-|---|---|
-| `Source` | Registr webových zdrojů s konfigurací |
-| `IngestJob` | Záznamy o jednotlivých úlohách sběru |
-| `Evidence` | Důkazní artefakty (screenshoty, markdown soubory) |
-
-## RBAC Role
-
-| Role | Oprávnění |
-|---|---|
-| `admin` | Plný přístup (ingest, správa zdrojů, uživatelů) |
-| `user` | Čtení, vyhledávání |
+MIT
