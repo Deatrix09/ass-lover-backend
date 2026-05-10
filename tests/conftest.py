@@ -14,7 +14,6 @@ os.environ["DATA_DIR"] = "/tmp/rag-test-data"
 
 # ---- Mock heavy third-party modules that are not installed in test env ----
 _MOCK_MODULES = [
-    "firecrawl",
     "easyocr",
     "qdrant_client",
     "qdrant_client.http",

@@ -11,7 +11,7 @@ QDRANT_PORT = int(os.getenv("QDRANT_PORT", "6333"))
 QDRANT_LOCAL_PATH = os.getenv("QDRANT_LOCAL_PATH", "")
 
 embeddings = HuggingFaceEmbeddings(model_name="paraphrase-multilingual-MiniLM-L12-v2")
-collection_name = "firecrawl_docs_v3"
+collection_name = "rag_docs_v1"
 
 if QDRANT_LOCAL_PATH:
     qdrant_client = QdrantClient(path=QDRANT_LOCAL_PATH)
